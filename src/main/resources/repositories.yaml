@@ -1,0 +1,27 @@
+global_settings:
+  check_interval_minutes: 30
+  auto_triage_enabled: true
+
+repositories:
+  - name: "mobile-app-service"
+    enabled: true
+    package_name: "com.company.app"
+    github:
+      owner: "your-organization"
+      repo: "mobile-app"
+      default_branch: "main"
+      issue_labels:
+        - "agent-autofix"
+        - "crashlytics"
+    github_actions:
+      enabled: true
+      workflows_to_monitor:
+        - "ci.yml"
+        - "lint-and-test.yml"
+    crashlytics:
+      enabled: true
+      app_id: "1:1234567890:android:abcdef123456"
+      min_error_threshold: 3
+    stitch:
+      enabled: true
+      theme_config_path: "src/theme/material-theme.json"

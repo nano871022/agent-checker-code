@@ -1,0 +1,22 @@
+agent:
+  name: "CodeAuditorAgent"
+  version: "1.0.0"
+
+active_profile: "local_lmstudio"
+
+profiles:
+  local_lmstudio:
+    provider: "lmstudio"
+    base_url: "http://localhost:1234/v1"
+    model: "qwen2.5-coder-32b-instruct"
+    temperature: 0.2
+
+  cloud_gemini:
+    provider: "google"
+    api_key_env: "GEMINI_API_KEY"
+    model: "gemini-1.5-pro"
+
+  cloud_anthropic:
+    provider: "anthropic"
+    api_key_env: "ANTHROPIC_API_KEY"
+    model: "claude-3-5-sonnet-20241022"
