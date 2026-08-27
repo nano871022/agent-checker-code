@@ -21,6 +21,7 @@ public class RepositoriesConfigProperties {
     public static class GlobalSettings {
         private int checkIntervalMinutes = 30;
         private boolean autoTriageEnabled = true;
+        private String stateFilePath = "./.agent-state.json";
     }
 
     @Data
