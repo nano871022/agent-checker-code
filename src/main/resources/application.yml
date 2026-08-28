@@ -1,3 +1,8 @@
 spring:
   application:
     name: code-auditor-agent
+
+jules:
+  api:
+    base-url: https://jules.googleapis.com/v1
+    api-key: ${JULES_API_KEY:}
