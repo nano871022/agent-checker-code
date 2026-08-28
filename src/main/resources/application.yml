@@ -6,3 +6,8 @@ jules:
   api:
     base-url: https://jules.googleapis.com/v1
     api-key: ${JULES_API_KEY:}
+
+stitch:
+  api:
+    base-url: https://stitch.googleapis.com/v1
+    api-key: ${STITCH_API_KEY:}
