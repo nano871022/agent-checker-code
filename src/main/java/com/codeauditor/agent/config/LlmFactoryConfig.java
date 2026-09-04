@@ -1,12 +1,15 @@
 package com.codeauditor.agent.config;
 
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
+import java.time.Duration;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 
 @Configuration
 public class LlmFactoryConfig {
@@ -31,7 +34,11 @@ public class LlmFactoryConfig {
 
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
                 .apiKey(apiKey)
-                .modelName(modelName);
+            .modelName(modelName);
+
+        if ("lmstudio".equalsIgnoreCase(profile.getProvider())) {
+            builder.timeout(Duration.ofHours(3));
+        }
 
         if (StringUtils.hasText(baseUrl)) {
             builder.baseUrl(baseUrl);

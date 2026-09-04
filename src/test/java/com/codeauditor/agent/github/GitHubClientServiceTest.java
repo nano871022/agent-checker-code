@@ -1,24 +1,24 @@
 package com.codeauditor.agent.github;
 
-import com.codeauditor.agent.github.dto.CreateIssueRequest;
-import com.codeauditor.agent.github.dto.GitHubIssue;
-import com.codeauditor.agent.github.dto.GitHubWorkflowRunsResponse;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
-
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import org.springframework.web.client.RestClient;
+
+import com.codeauditor.agent.github.dto.CreateIssueRequest;
+import com.codeauditor.agent.github.dto.GitHubIssue;
+import com.codeauditor.agent.github.dto.GitHubWorkflowRunsResponse;
 
 class GitHubClientServiceTest {
 
@@ -148,6 +148,10 @@ class GitHubClientServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpHeaders.ACCEPT, "application/vnd.github+json"))
                 .andExpect(header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE))
+          .andExpect(content().json("""
+            {"title":"Crash in User Service","body":"Detailed stack trace",
+             "labels":["bug","crash"],"assignees":[]}
+            """))
                 .andRespond(withSuccess(jsonResponse, MediaType.APPLICATION_JSON));
 
         CreateIssueRequest request = new CreateIssueRequest("Crash in User Service", "Detailed stack trace", List.of("bug", "crash"));
@@ -160,4 +164,30 @@ class GitHubClientServiceTest {
 
         mockServer.verify();
     }
+
+      @Test
+      void addIssueComment_shouldPostComment() {
+        mockServer.expect(requestTo("https://api.github.com/repos/owner/repo/issues/2/comments"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().json("{\"body\":\"Automated triage recommendation\"}"))
+            .andRespond(withSuccess());
+
+        gitHubClientService.addIssueComment("owner", "repo", 2L, "Automated triage recommendation");
+
+        mockServer.verify();
+      }
+
+      @Test
+      void addIssueLabel_shouldPostLabel() {
+        mockServer.expect(requestTo("https://api.github.com/repos/owner/repo/issues/2/labels"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(content().json("{\"labels\":[\"delegated-to-jules\"]}"))
+            .andRespond(withSuccess());
+
+        gitHubClientService.addIssueLabel("owner", "repo", 2L, "delegated-to-jules");
+
+        mockServer.verify();
+      }
 }

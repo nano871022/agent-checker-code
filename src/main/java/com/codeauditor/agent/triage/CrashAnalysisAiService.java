@@ -1,9 +1,10 @@
 package com.codeauditor.agent.triage;
 
 import com.codeauditor.agent.triage.dto.TriageDecision;
-import dev.langchain4j.service.AiServices;
+
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import dev.langchain4j.service.spring.AiService;
 
 @AiService
@@ -20,5 +21,6 @@ public interface CrashAnalysisAiService {
 
         Respond with exactly one of the TriageDecision enum names: RESOLVABLE_BY_AGENT, REQUIRES_HUMAN_INTERVENTION, or IGNORE_DUPLICATE.
         """)
-    TriageDecision analyzeCrash(@UserMessage String logOrStackTrace);
+    @UserMessage("{{logOrStackTrace}}")
+    TriageDecision analyzeCrash(@V("logOrStackTrace") String logOrStackTrace);
 }

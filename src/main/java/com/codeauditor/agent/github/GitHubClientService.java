@@ -4,6 +4,7 @@ import com.codeauditor.agent.github.dto.CreateIssueRequest;
 import com.codeauditor.agent.github.dto.GitHubIssue;
 import com.codeauditor.agent.github.dto.GitHubContent;
 import com.codeauditor.agent.github.dto.GitHubWorkflowRunsResponse;
+import com.codeauditor.agent.github.dto.CreateIssueCommentRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.Base64;
@@ -162,5 +164,23 @@ public class GitHubClientService {
                 .body(request)
                 .retrieve()
                 .body(GitHubIssue.class);
+    }
+
+    public void addIssueComment(String owner, String repo, long issueNumber, String comment) {
+        restClient.post()
+                .uri("/repos/{owner}/{repo}/issues/{issue_number}/comments", owner, repo, issueNumber)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new CreateIssueCommentRequest(comment))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    public void addIssueLabel(String owner, String repo, long issueNumber, String label) {
+        restClient.post()
+                .uri("/repos/{owner}/{repo}/issues/{issue_number}/labels", owner, repo, issueNumber)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("labels", List.of(label)))
+                .retrieve()
+                .toBodilessEntity();
     }
 }

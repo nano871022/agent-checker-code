@@ -1,12 +1,13 @@
 package com.codeauditor.agent.config;
 
-import lombok.Data;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
-import java.util.ArrayList;
-import java.util.List;
+import lombok.Data;
 
 @Data
 @Configuration
@@ -22,6 +23,7 @@ public class RepositoriesConfigProperties {
         private int checkIntervalMinutes = 30;
         private boolean autoTriageEnabled = true;
         private String stateFilePath = "./.agent-state.json";
+        private String repositoriesBasePath = "./repositories";
     }
 
     @Data
@@ -61,6 +63,7 @@ public class RepositoriesConfigProperties {
     public static class StitchConfig {
         private boolean enabled = true;
         private String themeConfigPath;
+        private String uiComponentsDir;
     }
 
     @Data

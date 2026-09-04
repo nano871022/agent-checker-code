@@ -1,6 +1,7 @@
 global_settings:
   check_interval_minutes: 30
   auto_triage_enabled: true
+  repositories_base_path: "~/git"
 
 repositories:
   - name: "Finances"
@@ -32,3 +33,4 @@ repositories:
     stitch:
       enabled: true
       theme_config_path: "src/main/java/co/com/japl/ui/theme/Theme.kt"
+      ui_components_dir: ""

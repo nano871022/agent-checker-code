@@ -1,7 +1,5 @@
 package com.codeauditor.agent.stitch;
 
-import com.codeauditor.agent.stitch.dto.StitchTransformRequest;
-import com.codeauditor.agent.stitch.dto.StitchTransformResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,12 +8,16 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import com.codeauditor.agent.stitch.dto.StitchTransformRequest;
+import com.codeauditor.agent.stitch.dto.StitchTransformResponse;
+
 @Service
 public class StitchApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(StitchApiClient.class);
 
     private final RestClient restClient;
+    private final boolean configured;
 
     public StitchApiClient(
             RestClient.Builder restClientBuilder,
@@ -31,6 +33,11 @@ public class StitchApiClient {
         }
 
         this.restClient = builder.build();
+        this.configured = apiKey != null && !apiKey.isBlank();
+    }
+
+    public boolean isConfigured() {
+        return configured;
     }
 
     /**

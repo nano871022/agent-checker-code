@@ -1,6 +1,8 @@
 spring:
   application:
     name: code-auditor-agent
+  config:
+    import: optional:file:.env[.properties]
 
 logging:
   file:

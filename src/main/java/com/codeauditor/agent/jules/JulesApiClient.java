@@ -59,10 +59,15 @@ public class JulesApiClient {
      * @return response from Jules API
      */
     public JulesTaskResponse delegateIssue(String repositoryUrl, Long issueId, String targetBranch) {
+        return delegateIssue(repositoryUrl, issueId, targetBranch, null);
+    }
+
+    public JulesTaskResponse delegateIssue(String repositoryUrl, Long issueId, String targetBranch, String prompt) {
         JulesTaskRequest request = JulesTaskRequest.builder()
                 .repositoryUrl(repositoryUrl)
                 .issueId(issueId)
                 .targetBranch(targetBranch)
+                .prompt(prompt)
                 .build();
         return delegateTask(request);
     }
