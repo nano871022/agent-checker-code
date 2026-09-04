@@ -22,6 +22,8 @@ public class GitHubIssue {
     private String htmlUrl;
     private GitHubUser user;
     private List<Label> labels;
+    @JsonProperty("pull_request")
+    private Object pullRequest;
 
     @Data
     @Builder

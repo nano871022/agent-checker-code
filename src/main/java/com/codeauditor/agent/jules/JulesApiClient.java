@@ -12,11 +12,12 @@ import org.springframework.web.client.RestClient;
 public class JulesApiClient {
 
     private final RestClient restClient;
+    private final boolean configured;
 
     public JulesApiClient(
             RestClient.Builder restClientBuilder,
             @Value("${jules.api.base-url:https://jules.googleapis.com/v1}") String baseUrl,
-            @Value("${jules.api.api-key:${JULES_API_KEY:}}") String apiKey) {
+            @Value("${jules.api.api-key:${JULES_API_KEY:${GOOGLE_JULES_API_KEY:}}}") String apiKey) {
 
         RestClient.Builder builder = restClientBuilder
                 .baseUrl(baseUrl)
@@ -27,6 +28,11 @@ public class JulesApiClient {
         }
 
         this.restClient = builder.build();
+        this.configured = apiKey != null && !apiKey.isBlank();
+    }
+
+    public boolean isConfigured() {
+        return configured;
     }
 
     /**

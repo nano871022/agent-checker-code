@@ -2,12 +2,21 @@ spring:
   application:
     name: code-auditor-agent
 
+logging:
+  file:
+    name: ${LOG_FILE:logs/code-auditor-agent.log}
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 1GB
+
 jules:
   api:
-    base-url: https://jules.googleapis.com/v1
+    base-url: ${JULES_API_BASE_URL:https://jules.googleapis.com/v1}
     api-key: ${JULES_API_KEY:}
 
 stitch:
   api:
-    base-url: https://stitch.googleapis.com/v1
+    base-url: ${STITCH_API_BASE_URL:https://stitch.googleapis.com/v1}
     api-key: ${STITCH_API_KEY:}

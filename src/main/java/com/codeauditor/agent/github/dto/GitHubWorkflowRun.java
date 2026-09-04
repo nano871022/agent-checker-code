@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 public class GitHubWorkflowRun {
     private Long id;
     private String name;
+    private String path;
     @JsonProperty("head_branch")
     private String headBranch;
     @JsonProperty("head_sha")

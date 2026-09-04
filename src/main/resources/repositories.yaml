@@ -3,12 +3,12 @@ global_settings:
   auto_triage_enabled: true
 
 repositories:
-  - name: "mobile-app-service"
+  - name: "Finances"
     enabled: true
-    package_name: "com.company.app"
+    package_name: "co.japl.android.myapplication"
     github:
-      owner: "your-organization"
-      repo: "mobile-app"
+      owner: "nano871022"
+      repo: "finances"
       default_branch: "main"
       issue_labels:
         - "agent-autofix"
@@ -16,12 +16,19 @@ repositories:
     github_actions:
       enabled: true
       workflows_to_monitor:
-        - "ci.yml"
-        - "lint-and-test.yml"
+        - "lint.yml"
+        - "test.yml"
+        - "TestRun.yml"
     crashlytics:
       enabled: true
-      app_id: "1:1234567890:android:abcdef123456"
+      app_id: "1:332922408573:android:33801dcc0736245840ab14"
       min_error_threshold: 3
+    audit:
+      enabled: true
+      repository_files:
+        - ".github/workflows/lint.yml"
+        - ".github/workflows/test.yml"
+        - ".github/workflows/TestRun.yml"
     stitch:
       enabled: true
-      theme_config_path: "src/theme/material-theme.json"
+      theme_config_path: "src/main/java/co/com/japl/ui/theme/Theme.kt"

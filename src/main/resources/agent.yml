@@ -7,14 +7,14 @@ active_profile: "local_lmstudio"
 profiles:
   local_lmstudio:
     provider: "lmstudio"
-    base_url: "http://localhost:1234/v1"
-    model: "qwen2.5-coder-32b-instruct"
-    temperature: 0.2
+    base_url: "${LM_STUDIO_BASE_URL:http://127.0.0.1:1234/v1}"
+    model: "google/gemma-4-e4b"
+    temperature: 0.8
 
   cloud_gemini:
     provider: "google"
     api_key_env: "GEMINI_API_KEY"
-    model: "gemini-1.5-pro"
+    model: "gemini-3.6-flash"
 
   cloud_anthropic:
     provider: "anthropic"

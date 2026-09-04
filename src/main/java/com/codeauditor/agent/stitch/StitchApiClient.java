@@ -20,7 +20,7 @@ public class StitchApiClient {
     public StitchApiClient(
             RestClient.Builder restClientBuilder,
             @Value("${stitch.api.base-url:https://stitch.googleapis.com/v1}") String baseUrl,
-            @Value("${stitch.api.api-key:${STITCH_API_KEY:}}") String apiKey) {
+            @Value("${stitch.api.api-key:${STITCH_API_KEY:${GOOGLE_STITCH_API_KEY:}}}") String apiKey) {
 
         RestClient.Builder builder = restClientBuilder
                 .baseUrl(baseUrl)

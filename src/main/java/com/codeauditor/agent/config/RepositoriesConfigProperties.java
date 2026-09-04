@@ -33,6 +33,7 @@ public class RepositoriesConfigProperties {
         private GithubActionsConfig githubActions = new GithubActionsConfig();
         private CrashlyticsConfig crashlytics = new CrashlyticsConfig();
         private StitchConfig stitch = new StitchConfig();
+        private AuditConfig audit = new AuditConfig();
     }
 
     @Data
@@ -60,5 +61,14 @@ public class RepositoriesConfigProperties {
     public static class StitchConfig {
         private boolean enabled = true;
         private String themeConfigPath;
+    }
+
+    @Data
+    public static class AuditConfig {
+        private boolean enabled = true;
+        private List<String> repositoryFiles = new ArrayList<>(List.of(
+                ".github/workflows/lint.yml",
+                ".github/workflows/test.yml"
+        ));
     }
 }

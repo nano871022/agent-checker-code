@@ -2,6 +2,7 @@ package com.codeauditor.agent.github;
 
 import com.codeauditor.agent.github.dto.CreateIssueRequest;
 import com.codeauditor.agent.github.dto.GitHubIssue;
+import com.codeauditor.agent.github.dto.GitHubContent;
 import com.codeauditor.agent.github.dto.GitHubWorkflowRunsResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -12,17 +13,25 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.Base64;
 
 @Service
 public class GitHubClientService {
 
     private final RestClient restClient;
+    private final boolean configured;
 
     public GitHubClientService(
             RestClient.Builder restClientBuilder,
-            @Value("${github.api.base-url:https://api.github.com}") String baseUrl,
-            @Value("${github.api.token:${GITHUB_TOKEN:}}") String token) {
+                @Value("${github.api.base-url:${GITHUB_API_BASE_URL:https://api.github.com}}") String baseUrl,
+            @Value("${github.api.token:${GITHUB_TOKEN:${GITHUB_PERSONAL_ACCESS_TOKEN:}}}") String token) {
 
         RestClient.Builder builder = restClientBuilder
                 .baseUrl(baseUrl)
@@ -34,6 +43,11 @@ public class GitHubClientService {
         }
 
         this.restClient = builder.build();
+        this.configured = token != null && !token.isBlank();
+    }
+
+    public boolean isConfigured() {
+        return configured;
     }
 
     /**
@@ -70,6 +84,23 @@ public class GitHubClientService {
                 .body(GitHubWorkflowRunsResponse.class);
     }
 
+    public GitHubContent getRepositoryFile(String owner, String repo, String path) {
+        return restClient.get()
+            .uri("/repos/{owner}/{repo}/contents/{path}", owner, repo, path)
+                .retrieve()
+                .body(GitHubContent.class);
+    }
+
+    public String decodeRepositoryFile(GitHubContent content) {
+        if (content == null || content.getContent() == null) {
+            return "";
+        }
+        if (!"base64".equalsIgnoreCase(content.getEncoding())) {
+            return content.getContent();
+        }
+        return new String(Base64.getMimeDecoder().decode(content.getContent()), StandardCharsets.UTF_8);
+    }
+
     /**
      * Fetch GitHub Actions run logs redirect or content for a run ID.
      *
@@ -79,10 +110,41 @@ public class GitHubClientService {
      * @return string content or log response
      */
     public String getWorkflowRunLogs(String owner, String repo, long runId) {
-        return restClient.get()
+        byte[] response = restClient.get()
                 .uri("/repos/{owner}/{repo}/actions/runs/{run_id}/logs", owner, repo, runId)
                 .retrieve()
-                .body(String.class);
+                .body(byte[].class);
+        if (response == null || response.length == 0) {
+            return "";
+        }
+        if (response.length < 2 || response[0] != 'P' || response[1] != 'K') {
+            return new String(response, StandardCharsets.UTF_8);
+        }
+        return unzipLogs(response);
+    }
+
+    private String unzipLogs(byte[] response) {
+        StringBuilder logs = new StringBuilder();
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(response), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            byte[] buffer = new byte[4096];
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                ByteArrayOutputStream content = new ByteArrayOutputStream();
+                int read;
+                while ((read = zip.read(buffer)) != -1) {
+                    content.write(buffer, 0, read);
+                }
+                logs.append("--- ").append(entry.getName()).append(" ---\n")
+                        .append(content.toString(StandardCharsets.UTF_8))
+                        .append("\n");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to decompress GitHub Actions logs", e);
+        }
+        return logs.toString();
     }
 
     /**

@@ -5,6 +5,7 @@ target/
 
 ### Spring Boot ###
 *.log
+.env
 
 ### IDE ###
 .idea/

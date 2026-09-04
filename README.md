@@ -129,6 +129,22 @@ ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxx
 
 ```
 
+PowerShell does not load `.env` files automatically. Set the variables in the same terminal before starting the jar, for example:
+
+```powershell
+$env:GITHUB_PERSONAL_ACCESS_TOKEN = "ghp_..."
+$env:FIREBASE_SERVICE_ACCOUNT_KEY_PATH = "C:\path\to\firebase-service-account.json"
+$env:GOOGLE_JULES_API_KEY = "..."
+$env:GOOGLE_STITCH_API_KEY = "..."
+$env:GEMINI_API_KEY = "..."
+$env:LM_STUDIO_BASE_URL = "http://127.0.0.1:1234/v1"
+java -jar target\code-auditor-agent-1.0.0.jar
+```
+
+The process is a long-running daemon. Keep that terminal open; `GracefulShutdown` means the process received a stop signal. The first analysis runs after the configured initial delay, then repeats every `check_interval_minutes`.
+
+Los mensajes se muestran en la terminal y se guardan simultáneamente en `logs\code-auditor-agent.log`. Spring Boot rota el archivo al superar `10MB`, conserva hasta 30 archivos y limita el total a `1GB`. Puedes cambiar la ubicación con `LOG_FILE`.
+
 ---
 
 ## 🚀 Running the Orchestrator Locally
