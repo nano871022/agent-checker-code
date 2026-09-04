@@ -23,11 +23,11 @@ import com.codeauditor.agent.github.dto.GitHubIssue;
 import com.codeauditor.agent.github.dto.GitHubWorkflowRun;
 import com.codeauditor.agent.github.dto.GitHubWorkflowRunsResponse;
 import com.codeauditor.agent.jules.JulesApiClient;
+import com.codeauditor.agent.jules.dto.JulesTaskResponse;
 import com.codeauditor.agent.queue.RepositoryQueueManager;
 import com.codeauditor.agent.repository.RepositoryWorkspaceService;
 import com.codeauditor.agent.stitch.StitchApiClient;
 import com.codeauditor.agent.stitch.dto.StitchTransformResponse;
-import com.codeauditor.agent.jules.dto.JulesTaskResponse;
 import com.codeauditor.agent.triage.IssueTemplateBuilder;
 import com.codeauditor.agent.triage.TriageService;
 import com.codeauditor.agent.triage.dto.TriageDecision;
@@ -230,11 +230,7 @@ public class AgentLoopDaemon {
                 .filter(java.util.Objects::nonNull)
                 .map(label -> label.toLowerCase(Locale.ROOT))
             .noneMatch("delegated-to-jules"::equals)
-            && issue.getLabels().stream()
-            .map(GitHubIssue.Label::getName)
-            .filter(java.util.Objects::nonNull)
-            .map(label -> label.toLowerCase(Locale.ROOT))
-            .anyMatch(label -> Set.of("automated-triage", "agent-autofix", "ci-failure", "crashlytics").contains(label));
+                && hasLabel(issue, "triage-resolvable-by-agent");
     }
 
     private boolean isDesignIssue(GitHubIssue issue) {
@@ -376,13 +372,17 @@ public class AgentLoopDaemon {
             if (issue.getPullRequest() != null) {
                 continue;
             }
+            if (hasLabel(issue, "triage-completed")) {
+                log.debug("Skipping already triaged GitHub issue #{} '{}'.", issue.getNumber(), issue.getTitle());
+                continue;
+            }
             String issueText = "GitHub issue #" + issue.getNumber() + ": " + issue.getTitle()
                     + "\n\n" + (issue.getBody() == null ? "" : issue.getBody());
             TriageResult result = triageService.triageLogOutput(owner, repo,
                     "Review recommendation for issue #" + issue.getNumber(), issueText);
             log.info("Reviewed GitHub issue #{} '{}': {} ({})", issue.getNumber(), issue.getTitle(),
                     result.getDecision(), result.getReasoning());
-            if (result.getDecision() != TriageDecision.IGNORE_DUPLICATE && gitHubClientService.isConfigured()) {
+            if (gitHubClientService.isConfigured()) {
                 addTriageComment(owner, repo, issue.getNumber(), result);
             }
             reviewed++;
@@ -429,6 +429,14 @@ public class AgentLoopDaemon {
                         || (run.getPath() != null && run.getPath().equalsIgnoreCase(workflow)));
     }
 
+    private boolean hasLabel(GitHubIssue issue, String expectedLabel) {
+        return issue != null && issue.getLabels() != null
+                && issue.getLabels().stream()
+                .map(GitHubIssue.Label::getName)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(label -> label.equalsIgnoreCase(expectedLabel));
+    }
+
     private int publishFinding(String owner, String repo, CreateIssueRequest request, TriageResult result, String findingId) {
         if (!gitHubClientService.isConfigured()) {
             log.warn("Finding '{}' was not published because GITHUB_TOKEN is missing.", findingId);
@@ -456,6 +464,10 @@ public class AgentLoopDaemon {
             result.getReasoning() == null ? "No reasoning provided." : result.getReasoning()).trim();
         try {
             gitHubClientService.addIssueComment(owner, repo, issueNumber, comment);
+            gitHubClientService.addIssueLabel(owner, repo, issueNumber, "triage-completed");
+            String decisionLabel = result.getDecision() == TriageDecision.RESOLVABLE_BY_AGENT
+                    ? "triage-resolvable-by-agent" : "triage-human-intervention";
+            gitHubClientService.addIssueLabel(owner, repo, issueNumber, decisionLabel);
             log.info("Added automated triage comment to GitHub issue #{}.", issueNumber);
         } catch (Exception e) {
             log.warn("Unable to add automated triage comment to GitHub issue #{}: {}", issueNumber, e.getMessage());

@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: code-auditor-agent-test
+  # Explicitly do NOT import .env in tests to isolate test execution from production/private secrets
+
+logging:
+  file:
+    name: target/test-logs/code-auditor-agent-test.log
+
+jules:
+  api:
+    base-url: https://mock-jules.example.com
+    api-key: mock-jules-api-key
+
+stitch:
+  api:
+    base-url: https://mock-stitch.example.com
+    api-key: mock-stitch-api-key
+
+github:
+  api:
+    base-url: https://mock-github.example.com
+    token: mock-github-token
+
+firebase:
+  service-account-path: ""
+
+agent:
+  daemon:
+    initial-delay: 3600000
+  triage:
+    internal-package-prefix: com.codeauditor

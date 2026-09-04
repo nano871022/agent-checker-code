@@ -119,4 +119,83 @@ class FirebaseCrashlyticsServiceTest {
         List<CrashEvent> results = service.getUnresolvedCrashes("app-1", null, 1);
         assertThat(results).hasSize(1);
     }
+
+    @Test
+    void testParseRemoteEventsFromTopIssuesReport() throws Exception {
+        String json = """
+        {
+          "groups": [
+            {
+              "metrics": [
+                {
+                  "eventsCount": "5",
+                  "impactedUsersCount": "2"
+                }
+              ],
+              "issue": {
+                "id": "issue-abc",
+                "title": "co.com.japl.module.creditcard.views.bought.BoughtListBodyKt$MainRow$3.invokeSuspend",
+                "subtitle": "java.lang.ClassNotFoundException - androidx.compose.material3.BasicTooltipState",
+                "errorType": "FATAL",
+                "uri": "https://console.firebase.google.com/issue-abc",
+                "lastSeenVersion": "v1.2.0",
+                "state": "OPEN"
+              }
+            },
+            {
+              "metrics": [
+                {
+                  "eventsCount": "1",
+                  "impactedUsersCount": "1"
+                }
+              ],
+              "issue": {
+                "id": "issue-def",
+                "title": "jdk.internal.math.FloatingDecimal.readJavaFormatString",
+                "subtitle": "java.lang.NumberFormatException - For input string: \\"28,\\"",
+                "errorType": "FATAL",
+                "lastSeenVersion": "v1.2.0",
+                "state": "OPEN"
+              }
+            },
+            {
+              "metrics": [
+                {
+                  "eventsCount": "10",
+                  "impactedUsersCount": "5"
+                }
+              ],
+              "issue": {
+                "id": "issue-closed",
+                "title": "com.company.OldClass.oldMethod",
+                "subtitle": "java.lang.IllegalStateException - Closed",
+                "errorType": "FATAL",
+                "state": "CLOSED"
+              }
+            }
+          ]
+        }
+        """;
+
+        List<CrashEvent> crashes = service.parseRemoteEvents(json, "app-test", 2);
+
+        // issue-closed is skipped because state is CLOSED, issue-def is skipped because eventCount 1 < min 2
+        assertThat(crashes).hasSize(1);
+        CrashEvent crash = crashes.get(0);
+        assertThat(crash.getCrashId()).isEqualTo("issue-abc");
+        assertThat(crash.getAppId()).isEqualTo("app-test");
+        assertThat(crash.getAppVersion()).isEqualTo("v1.2.0");
+        assertThat(crash.getExceptionType()).isEqualTo("java.lang.ClassNotFoundException");
+        assertThat(crash.getMessage()).isEqualTo("androidx.compose.material3.BasicTooltipState");
+        assertThat(crash.getEventCount()).isEqualTo(5);
+        assertThat(crash.getStackTrace()).contains("androidx.compose.material3.BasicTooltipState");
+        assertThat(crash.getStackTrace()).contains("co.com.japl.module.creditcard.views.bought.BoughtListBodyKt$MainRow$3.invokeSuspend");
+        assertThat(crash.getStackTrace()).contains("https://console.firebase.google.com/issue-abc");
+
+        assertThat(crash.getPrimaryFrame()).isNotNull();
+        assertThat(crash.getPrimaryFrame().getPackageName()).isEqualTo("co.com.japl.module.creditcard.views.bought");
+        assertThat(crash.getPrimaryFrame().getClassName()).isEqualTo("co.com.japl.module.creditcard.views.bought.BoughtListBodyKt$MainRow$3");
+        assertThat(crash.getPrimaryFrame().getMethodName()).isEqualTo("invokeSuspend");
+        assertThat(crash.getPrimaryFrame().getFileName()).isEqualTo("BoughtListBodyKt.kt");
+    }
 }

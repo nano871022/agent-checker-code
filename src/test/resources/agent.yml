@@ -1,0 +1,22 @@
+agent:
+  name: "CodeAuditorAgentTest"
+  version: "1.0.0-test"
+
+active_profile: "test_local_lmstudio"
+
+profiles:
+  test_local_lmstudio:
+    provider: "lmstudio"
+    base_url: "http://localhost:1234/v1"
+    model: "mock-model"
+    temperature: 0.7
+
+  mock_gemini:
+    provider: "google"
+    api_key_env: "MOCK_GEMINI_API_KEY"
+    model: "mock-gemini-model"
+
+  mock_anthropic:
+    provider: "anthropic"
+    api_key_env: "MOCK_ANTHROPIC_API_KEY"
+    model: "mock-anthropic-model"

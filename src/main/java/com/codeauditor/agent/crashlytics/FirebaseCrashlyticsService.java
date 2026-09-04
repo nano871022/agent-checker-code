@@ -17,10 +17,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.codeauditor.agent.crashlytics.dto.CrashEvent;
+import com.codeauditor.agent.crashlytics.dto.StackFrame;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -64,7 +66,10 @@ public class FirebaseCrashlyticsService {
             if (keyFile.exists()) {
                 try (InputStream serviceAccount = new FileInputStream(keyFile)) {
                         credentials = GoogleCredentials.fromStream(serviceAccount)
-                            .createScoped(List.of("https://www.googleapis.com/auth/cloud-platform"));
+                            .createScoped(List.of(
+                                    "https://www.googleapis.com/auth/cloud-platform",
+                                    "https://www.googleapis.com/auth/firebase"
+                            ));
                     if (credentials instanceof ServiceAccountCredentials serviceAccountCredentials) {
                         connectedProjectId = serviceAccountCredentials.getProjectId();
                     }
@@ -153,9 +158,8 @@ public class FirebaseCrashlyticsService {
             }
 
             URI uri = UriComponentsBuilder.fromUriString("https://firebasecrashlytics.googleapis.com")
-                    .path("/v1alpha/projects/{project}/apps/{app}/events")
+                    .path("/v1alpha/projects/{project}/apps/{app}/reports/topIssues")
                     .queryParam("pageSize", 100)
-                    .queryParam("filter.issue.states", "OPEN")
                     .queryParamIfPresent("filter.version.displayNames",
                             appVersion == null || appVersion.isBlank() ? java.util.Optional.empty() : java.util.Optional.of(appVersion))
                     .buildAndExpand(connectedProjectId, appId)
@@ -168,15 +172,107 @@ public class FirebaseCrashlyticsService {
                     .retrieve()
                     .body(String.class);
             return parseRemoteEvents(response, appId, minErrorThreshold);
+        } catch (HttpClientErrorException.Forbidden e) {
+            String activationUrl = "https://console.cloud.google.com/apis/library/firebasecrashlytics.googleapis.com?project="
+                    + connectedProjectId;
+            log.warn("Firebase Crashlytics API access denied for projectId='{}' (HTTP 403). "
+                            + "Enable the Firebase Crashlytics API and grant the service account access. "
+                            + "Activation URL: {}. API response: {}",
+                    connectedProjectId, activationUrl, summarizeApiError(e.getResponseBodyAsString()));
+            return null;
+        } catch (HttpClientErrorException e) {
+            log.warn("Firebase Crashlytics API request rejected: projectId='{}', appId='{}', status={}, response={}",
+                    connectedProjectId, appId, e.getStatusCode(), summarizeApiError(e.getResponseBodyAsString()));
+            return null;
         } catch (Exception e) {
             log.error("Firebase Crashlytics API request failed: projectId='{}', appId='{}', error='{}'.",
-                    connectedProjectId, appId, e.getMessage(), e);
+                    connectedProjectId, appId, e.getMessage());
             return null;
         }
     }
 
-    private List<CrashEvent> parseRemoteEvents(String response, String appId, int minErrorThreshold) throws Exception {
+    private String summarizeApiError(String response) {
+        if (response == null || response.isBlank()) {
+            return "no response body";
+        }
+        String normalized = response.replaceAll("\\s+", " ").trim();
+        return normalized.length() > 500 ? normalized.substring(0, 500) + "..." : normalized;
+    }
+
+    List<CrashEvent> parseRemoteEvents(String response, String appId, int minErrorThreshold) throws Exception {
         JsonNode root = objectMapper.readTree(response == null ? "{}" : response);
+        List<CrashEvent> events = new ArrayList<>();
+
+        if (root.has("groups")) {
+            for (JsonNode group : root.path("groups")) {
+                JsonNode issue = group.path("issue");
+                String issueId = textOrDefault(issue, "id", "unknown");
+                String state = textOrDefault(issue, "state", "OPEN");
+                if ("CLOSED".equalsIgnoreCase(state)) {
+                    continue;
+                }
+
+                String title = textOrDefault(issue, "title", "");
+                String subtitle = textOrDefault(issue, "subtitle", "");
+                String lastSeenVersion = textOrDefault(issue, "lastSeenVersion", null);
+                String issueUri = textOrDefault(issue, "uri", null);
+
+                String exceptionType = textOrDefault(issue, "errorType", "CRASH");
+                String message = title;
+                if (!subtitle.isBlank()) {
+                    if (subtitle.contains(" - ")) {
+                        String[] parts = subtitle.split(" - ", 2);
+                        exceptionType = parts[0].trim();
+                        message = parts[1].trim();
+                    } else if (subtitle.contains(": ")) {
+                        String[] parts = subtitle.split(": ", 2);
+                        exceptionType = parts[0].trim();
+                        message = parts[1].trim();
+                    } else {
+                        exceptionType = subtitle.trim();
+                        message = title;
+                    }
+                }
+
+                StackFrame primaryFrame = parsePrimaryFrameFromTitle(title);
+
+                StringBuilder stackTraceBuilder = new StringBuilder();
+                if (!subtitle.isBlank()) {
+                    stackTraceBuilder.append(subtitle).append("\n");
+                }
+                if (!title.isBlank()) {
+                    stackTraceBuilder.append("\tat ").append(title);
+                }
+                if (issueUri != null && !issueUri.isBlank()) {
+                    stackTraceBuilder.append("\nCrashlytics Console: ").append(issueUri);
+                }
+
+                int eventCount = 1;
+                JsonNode metrics = group.path("metrics");
+                if (metrics.isArray() && !metrics.isEmpty()) {
+                    eventCount = metrics.get(0).path("eventsCount").asInt(1);
+                }
+
+                CrashEvent crashEvent = CrashEvent.builder()
+                        .crashId(issueId)
+                        .appId(appId)
+                        .appVersion(lastSeenVersion)
+                        .exceptionType(exceptionType)
+                        .message(message)
+                        .stackTrace(stackTraceBuilder.toString().trim())
+                        .eventCount(eventCount)
+                        .resolved(false)
+                        .primaryFrame(primaryFrame)
+                        .timestamp(Instant.now())
+                        .build();
+
+                if (crashEvent.getEventCount() >= minErrorThreshold) {
+                    events.add(crashEvent);
+                }
+            }
+            return events;
+        }
+
         Map<String, CrashEventAccumulator> grouped = new HashMap<>();
         for (JsonNode event : root.path("events")) {
             JsonNode issue = event.path("issue");
@@ -189,6 +285,31 @@ public class FirebaseCrashlyticsService {
                 .map(CrashEventAccumulator::toCrashEvent)
                 .filter(crash -> crash.getEventCount() >= minErrorThreshold)
                 .toList();
+    }
+
+    private StackFrame parsePrimaryFrameFromTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return null;
+        }
+        int lastDot = title.lastIndexOf('.');
+        if (lastDot <= 0) {
+            return StackFrame.builder().className(title).build();
+        }
+        String fullClassName = title.substring(0, lastDot);
+        String methodName = title.substring(lastDot + 1);
+        int lastClassDot = fullClassName.lastIndexOf('.');
+        String packageName = lastClassDot > 0 ? fullClassName.substring(0, lastClassDot) : "";
+        String simpleClassName = lastClassDot > 0 ? fullClassName.substring(lastClassDot + 1) : fullClassName;
+        String fileName = simpleClassName.contains("$")
+                ? simpleClassName.substring(0, simpleClassName.indexOf('$')) + ".kt"
+                : simpleClassName + ".kt";
+
+        return StackFrame.builder()
+                .packageName(packageName)
+                .className(fullClassName)
+                .methodName(methodName)
+                .fileName(fileName)
+                .build();
     }
 
     private String textOrDefault(JsonNode node, String field, String defaultValue) {

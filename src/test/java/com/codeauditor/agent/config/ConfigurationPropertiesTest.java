@@ -18,53 +18,53 @@ class ConfigurationPropertiesTest {
     @Test
     void testAgentConfigPropertiesMapping() {
         assertThat(agentConfigProperties).isNotNull();
-        assertThat(agentConfigProperties.getAgent().getName()).isEqualTo("CodeAuditorAgent");
-        assertThat(agentConfigProperties.getAgent().getVersion()).isEqualTo("1.0.0");
-        assertThat(agentConfigProperties.getActiveProfile()).isEqualTo("local_lmstudio");
+        assertThat(agentConfigProperties.getAgent().getName()).isEqualTo("CodeAuditorAgentTest");
+        assertThat(agentConfigProperties.getAgent().getVersion()).isEqualTo("1.0.0-test");
+        assertThat(agentConfigProperties.getActiveProfile()).isEqualTo("test_local_lmstudio");
 
-        assertThat(agentConfigProperties.getProfiles()).containsKey("local_lmstudio");
-        AgentConfigProperties.ProfileConfig lmstudioProfile = agentConfigProperties.getProfiles().get("local_lmstudio");
+        assertThat(agentConfigProperties.getProfiles()).containsKey("test_local_lmstudio");
+        AgentConfigProperties.ProfileConfig lmstudioProfile = agentConfigProperties.getProfiles().get("test_local_lmstudio");
         assertThat(lmstudioProfile.getProvider()).isEqualTo("lmstudio");
-//assertThat(lmstudioProfile.getBaseUrl()).isEqualTo("${LM_STUDIO_BASE_URL:http://127.0.0.1:1234/v1}");
- //       assertThat(lmstudioProfile.getModel()).isEqualTo("google/gemma-4-e4b");
-   //     assertThat(lmstudioProfile.getTemperature()).isEqualTo(0.8);
+        assertThat(lmstudioProfile.getBaseUrl()).isEqualTo("http://localhost:1234/v1");
+        assertThat(lmstudioProfile.getModel()).isEqualTo("mock-model");
+        assertThat(lmstudioProfile.getTemperature()).isEqualTo(0.7);
 
-        assertThat(agentConfigProperties.getProfiles()).containsKey("cloud_gemini");
-        AgentConfigProperties.ProfileConfig geminiProfile = agentConfigProperties.getProfiles().get("cloud_gemini");
+        assertThat(agentConfigProperties.getProfiles()).containsKey("mock_gemini");
+        AgentConfigProperties.ProfileConfig geminiProfile = agentConfigProperties.getProfiles().get("mock_gemini");
         assertThat(geminiProfile.getProvider()).isEqualTo("google");
-        assertThat(geminiProfile.getApiKeyEnv()).isEqualTo("GEMINI_API_KEY");
+        assertThat(geminiProfile.getApiKeyEnv()).isEqualTo("MOCK_GEMINI_API_KEY");
 
-        assertThat(agentConfigProperties.getProfiles()).containsKey("cloud_anthropic");
-        AgentConfigProperties.ProfileConfig anthropicProfile = agentConfigProperties.getProfiles().get("cloud_anthropic");
+        assertThat(agentConfigProperties.getProfiles()).containsKey("mock_anthropic");
+        AgentConfigProperties.ProfileConfig anthropicProfile = agentConfigProperties.getProfiles().get("mock_anthropic");
         assertThat(anthropicProfile.getProvider()).isEqualTo("anthropic");
-        assertThat(anthropicProfile.getApiKeyEnv()).isEqualTo("ANTHROPIC_API_KEY");
+        assertThat(anthropicProfile.getApiKeyEnv()).isEqualTo("MOCK_ANTHROPIC_API_KEY");
     }
 
     @Test
     void testRepositoriesConfigPropertiesMapping() {
         assertThat(repositoriesConfigProperties).isNotNull();
         assertThat(repositoriesConfigProperties.getGlobalSettings().getCheckIntervalMinutes()).isEqualTo(30);
-        assertThat(repositoriesConfigProperties.getGlobalSettings().isAutoTriageEnabled()).isTrue();
+        assertThat(repositoriesConfigProperties.getGlobalSettings().isAutoTriageEnabled()).isFalse();
 
         assertThat(repositoriesConfigProperties.getRepositories()).hasSize(1);
         RepositoriesConfigProperties.RepositoryConfig repo = repositoriesConfigProperties.getRepositories().get(0);
-      //  assertThat(repo.getName()).isEqualTo("mobile-app-service");
+        assertThat(repo.getName()).isEqualTo("mobile-app-service");
         assertThat(repo.isEnabled()).isTrue();
-        //assertThat(repo.getPackageName()).isEqualTo("com.company.app");
+        assertThat(repo.getPackageName()).isEqualTo("com.company.app");
 
-        //assertThat(repo.getGithub().getOwner()).isEqualTo("your-organization");
-        //assertThat(repo.getGithub().getRepo()).isEqualTo("mobile-app");
+        assertThat(repo.getGithub().getOwner()).isEqualTo("your-organization");
+        assertThat(repo.getGithub().getRepo()).isEqualTo("mobile-app");
         assertThat(repo.getGithub().getDefaultBranch()).isEqualTo("main");
         assertThat(repo.getGithub().getIssueLabels()).containsExactly("agent-autofix", "crashlytics");
 
         assertThat(repo.getGithubActions().isEnabled()).isTrue();
-      //  assertThat(repo.getGithubActions().getWorkflowsToMonitor()).containsExactly("ci.yml", "lint-and-test.yml");
+        assertThat(repo.getGithubActions().getWorkflowsToMonitor()).containsExactly("ci.yml", "lint-and-test.yml");
 
         assertThat(repo.getCrashlytics().isEnabled()).isTrue();
-        //assertThat(repo.getCrashlytics().getAppId()).isEqualTo("1:1234567890:android:abcdef123456");
+        assertThat(repo.getCrashlytics().getAppId()).isEqualTo("1:1234567890:android:abcdef123456");
         assertThat(repo.getCrashlytics().getMinErrorThreshold()).isEqualTo(3);
 
         assertThat(repo.getStitch().isEnabled()).isTrue();
-        //assertThat(repo.getStitch().getThemeConfigPath()).isEqualTo("src/theme/material-theme.json");
+        assertThat(repo.getStitch().getThemeConfigPath()).isEqualTo("src/theme/material-theme.json");
     }
 }

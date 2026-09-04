@@ -53,8 +53,8 @@ class LlmFactoryConfigTest {
 
         AgentConfigProperties.ProfileConfig profile = new AgentConfigProperties.ProfileConfig();
         profile.setProvider("google");
-        profile.setApiKeyEnv("NON_EXISTENT_ENV_VAR_12345");
-        profile.setModel("gemini-1.5-pro");
+        profile.setApiKeyEnv("MOCK_GEMINI_API_KEY_NOT_SET");
+        profile.setModel("mock-gemini-model");
 
         Map<String, AgentConfigProperties.ProfileConfig> profiles = new HashMap<>();
         profiles.put("cloud_gemini", profile);
