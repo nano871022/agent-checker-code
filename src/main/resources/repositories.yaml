@@ -23,7 +23,7 @@ repositories:
     crashlytics:
       enabled: true
       app_id: "1:332922408573:android:33801dcc0736245840ab14"
-      min_error_threshold: 3
+      min_error_threshold: 1
     audit:
       enabled: true
       repository_files:

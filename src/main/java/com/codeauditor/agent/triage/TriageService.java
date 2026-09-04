@@ -5,6 +5,7 @@ import com.codeauditor.agent.crashlytics.dto.StackFrame;
 import com.codeauditor.agent.github.GitHubClientService;
 import com.codeauditor.agent.github.dto.GitHubIssue;
 import com.codeauditor.agent.triage.dto.TriageDecision;
+import com.codeauditor.agent.triage.dto.TriageAnalysis;
 import com.codeauditor.agent.triage.dto.TriageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,14 +140,18 @@ public class TriageService {
     private TriageResult evaluateWithAiService(String textToAnalyze, String title) {
         try {
             log.info("Delegating triage evaluation to LLM via CrashAnalysisAiService.");
-            TriageDecision aiDecision = crashAnalysisAiService.analyzeCrash(textToAnalyze);
-            TriageDecision finalDecision = (aiDecision != null) ? aiDecision : TriageDecision.RESOLVABLE_BY_AGENT;
+                TriageAnalysis analysis = crashAnalysisAiService.analyzeCrash(textToAnalyze);
+                TriageDecision finalDecision = analysis != null && analysis.getDecision() != null
+                    ? analysis.getDecision() : TriageDecision.RESOLVABLE_BY_AGENT;
+                String detailedReasoning = analysis != null && analysis.getSummary() != null
+                    ? analysis.getSummary() : "AI evaluation did not provide a summary.";
 
             return new TriageResult(
                     finalDecision,
-                    "Evaluated by AI Service: " + finalDecision,
+                    detailedReasoning,
                     null,
-                    title
+                    title,
+                    analysis
             );
         } catch (Exception e) {
             log.error("Error during AI triage evaluation, defaulting to RESOLVABLE_BY_AGENT: {}", e.getMessage(), e);

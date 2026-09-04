@@ -1,23 +1,26 @@
 package com.codeauditor.agent.triage;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.codeauditor.agent.crashlytics.dto.CrashEvent;
 import com.codeauditor.agent.crashlytics.dto.StackFrame;
 import com.codeauditor.agent.github.GitHubClientService;
 import com.codeauditor.agent.github.dto.GitHubIssue;
+import com.codeauditor.agent.triage.dto.TriageAnalysis;
 import com.codeauditor.agent.triage.dto.TriageDecision;
 import com.codeauditor.agent.triage.dto.TriageResult;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.Instant;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TriageServiceTest {
@@ -101,7 +104,11 @@ class TriageServiceTest {
     @Test
     void triageCrashEvent_internalPackage_delegatesToAiService() {
         when(gitHubClientService.getIssues("owner", "repo", "open")).thenReturn(List.of());
-        when(crashAnalysisAiService.analyzeCrash(anyString())).thenReturn(TriageDecision.RESOLVABLE_BY_AGENT);
+        when(crashAnalysisAiService.analyzeCrash(anyString())).thenReturn(TriageAnalysis.builder()
+            .decision(TriageDecision.RESOLVABLE_BY_AGENT)
+            .summary("Null object is used before initialization")
+            .recommendedActions(List.of("Add a null guard", "Run the affected unit tests"))
+            .build());
 
         StackFrame internalFrame = StackFrame.builder()
                 .packageName("com.codeauditor.agent.service")
@@ -137,7 +144,11 @@ class TriageServiceTest {
     @Test
     void triageLogOutput_normalLog_delegatesToAiService() {
         when(gitHubClientService.getIssues("owner", "repo", "open")).thenReturn(List.of());
-        when(crashAnalysisAiService.analyzeCrash(anyString())).thenReturn(TriageDecision.RESOLVABLE_BY_AGENT);
+        when(crashAnalysisAiService.analyzeCrash(anyString())).thenReturn(TriageAnalysis.builder()
+            .decision(TriageDecision.RESOLVABLE_BY_AGENT)
+            .summary("Compilation syntax error")
+            .testsToAdd(List.of("Run the compile task"))
+            .build());
 
         String logContent = "Build failed: Syntax error on line 42 in Controller.java";
 

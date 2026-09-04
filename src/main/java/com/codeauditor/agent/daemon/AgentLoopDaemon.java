@@ -458,10 +458,10 @@ public class AgentLoopDaemon {
 
             **Decision:** %s
 
-            **Model response:**
+            **Detailed analysis:**
             %s
             """.formatted(result.getDecision(),
-            result.getReasoning() == null ? "No reasoning provided." : result.getReasoning()).trim();
+            result.getDetailedAnalysis() == null ? "No detailed analysis provided." : result.getDetailedAnalysis()).trim();
         try {
             gitHubClientService.addIssueComment(owner, repo, issueNumber, comment);
             gitHubClientService.addIssueLabel(owner, repo, issueNumber, "triage-completed");
