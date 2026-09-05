@@ -5,9 +5,12 @@ import co.dev.japl.java.spring.agentcheckercode.github.dto.CreateIssueRequest;
 import co.dev.japl.java.spring.agentcheckercode.github.dto.GitHubIssue;
 import co.dev.japl.java.spring.agentcheckercode.triage.dto.TriageDecision;
 import co.dev.japl.java.spring.agentcheckercode.triage.dto.TriageResult;
+import co.dev.japl.java.spring.agentcheckercode.utils.PromptLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -39,20 +42,23 @@ public class FindingPublisherServiceImpl implements FindingPublisherService {
         if (gitHubClientService == null) {
             return;
         }
-        String comment = """
-                ## Automated triage recommendation
+        String detailedAnalysis = (result != null && result.getDetailedAnalysis() != null)
+                ? result.getDetailedAnalysis()
+                : "No detailed analysis provided.";
+        String decision = (result != null && result.getDecision() != null)
+                ? String.valueOf(result.getDecision())
+                : "N/A";
 
-                **Decision:** %s
+        Map<String, Object> vars = Map.of(
+                "decision", decision,
+                "detailedAnalysis", detailedAnalysis
+        );
+        String comment = PromptLoader.renderPrompt("prompts/triage-comment.prompt", vars).trim();
 
-                **Detailed analysis:**
-                %s
-                """.formatted(result.getDecision(),
-                result.getDetailedAnalysis() == null ? "No detailed analysis provided." : result.getDetailedAnalysis())
-                .trim();
         try {
             gitHubClientService.addIssueComment(owner, repo, issueNumber, comment);
             gitHubClientService.addIssueLabel(owner, repo, issueNumber, "triage-completed");
-            String decisionLabel = result.getDecision() == TriageDecision.RESOLVABLE_BY_AGENT
+            String decisionLabel = (result != null && result.getDecision() == TriageDecision.RESOLVABLE_BY_AGENT)
                     ? "triage-resolvable-by-agent"
                     : "triage-human-intervention";
             gitHubClientService.addIssueLabel(owner, repo, issueNumber, decisionLabel);

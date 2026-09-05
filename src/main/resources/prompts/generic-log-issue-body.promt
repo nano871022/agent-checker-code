@@ -1,0 +1,17 @@
+## 📌 Problem Overview
+
+{{overviewSection}}
+## 📜 Log Output
+
+{{logOutputSection}}
+
+## 📍 Affected Location
+
+Refer to log output above for relevant files and stack traces.
+
+## 📋 Task Checklist for Jules
+
+- [ ] Analyze log output and pinpoint root cause.
+- [ ] Implement code fix in source repository.
+- [ ] Add or update unit tests to verify fix.
+- [ ] Verify build and tests pass locally before submitting PR.
