@@ -10,10 +10,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
-    <groupId>com.codeauditor</groupId>
-    <artifactId>code-auditor-agent</artifactId>
+    <groupId>co.dev.japl.java.spring</groupId>
+    <artifactId>agent-checker-code</artifactId>
     <version>1.0.0</version>
-    <name>code-auditor-agent</name>
+    <name>agent-checker-code</name>
     <description>Tech Lead &amp; Code Auditor Agent Orchestrator</description>
 
     <properties>
