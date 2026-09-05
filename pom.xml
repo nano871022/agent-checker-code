@@ -10,7 +10,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
-    <groupId>co.com.japl.java.spring</groupId>
+    <groupId>co.dev.japl.java.spring</groupId>
     <artifactId>agent-checker-code</artifactId>
     <version>1.0.0</version>
     <name>agent-checker-code</name>
