@@ -15,7 +15,7 @@ logging:
 
 jules:
   api:
-    base-url: ${JULES_API_BASE_URL:https://jules.googleapis.com/v1}
+    base-url: ${JULES_API_BASE_URL:https://jules.googleapis.com/v1alpha}
     api-key: ${JULES_API_KEY:}
 
 stitch:

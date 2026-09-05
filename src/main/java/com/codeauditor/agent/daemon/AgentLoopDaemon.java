@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,11 +33,14 @@ import com.codeauditor.agent.triage.IssueTemplateBuilder;
 import com.codeauditor.agent.triage.TriageService;
 import com.codeauditor.agent.triage.dto.TriageDecision;
 import com.codeauditor.agent.triage.dto.TriageResult;
+import com.codeauditor.agent.utils.Costants;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class AgentLoopDaemon {
 
     private final RepositoryQueueManager queueManager;
@@ -51,28 +55,6 @@ public class AgentLoopDaemon {
 
     public AgentLoopDaemon(RepositoryQueueManager queueManager, RepositoriesConfigProperties repositoriesConfig) {
         this(queueManager, repositoriesConfig, null, null, null, null, null, null, null);
-    }
-
-    @Autowired
-    public AgentLoopDaemon(
-            RepositoryQueueManager queueManager,
-            RepositoriesConfigProperties repositoriesConfig,
-            FirebaseCrashlyticsService crashlyticsService,
-            GitHubClientService gitHubClientService,
-            TriageService triageService,
-            IssueTemplateBuilder issueTemplateBuilder,
-            JulesApiClient julesApiClient,
-            RepositoryWorkspaceService repositoryWorkspaceService,
-            StitchApiClient stitchApiClient) {
-        this.queueManager = queueManager;
-        this.repositoriesConfig = repositoriesConfig;
-        this.crashlyticsService = crashlyticsService;
-        this.gitHubClientService = gitHubClientService;
-        this.triageService = triageService;
-        this.issueTemplateBuilder = issueTemplateBuilder;
-        this.julesApiClient = julesApiClient;
-        this.repositoryWorkspaceService = repositoryWorkspaceService;
-        this.stitchApiClient = stitchApiClient;
     }
 
     @Scheduled(fixedDelayString = "#{repositoriesConfigProperties.globalSettings.checkIntervalMinutes * 60000}", initialDelayString = "${agent.daemon.initial-delay:1000}")
@@ -109,7 +91,8 @@ public class AgentLoopDaemon {
     }
 
     protected void executeTriagePipeline(RepositoryConfig repo) {
-        if (crashlyticsService == null || gitHubClientService == null || triageService == null || issueTemplateBuilder == null) {
+        if (crashlyticsService == null || gitHubClientService == null || triageService == null
+                || issueTemplateBuilder == null) {
             log.warn("Analysis services are not wired; repository '{}' was not inspected.", repo.getName());
             return;
         }
@@ -121,12 +104,13 @@ public class AgentLoopDaemon {
             return;
         }
         if (!gitHubClientService.isConfigured()) {
-            log.warn("GITHUB_TOKEN is not configured; '{}' can be inspected but issues will not be created.", repo.getName());
+            log.warn("GITHUB_TOKEN is not configured; '{}' can be inspected but issues will not be created.",
+                    repo.getName());
         }
 
         Path localRepository = repositoryWorkspaceService == null ? null
-            : repositoryWorkspaceService.prepareRepository(repo,
-            repositoriesConfig.getGlobalSettings().getRepositoriesBasePath());
+                : repositoryWorkspaceService.prepareRepository(repo,
+                        repositoriesConfig.getGlobalSettings().getRepositoriesBasePath());
 
         int findings = 0;
         if (repo.getAudit().isEnabled()) {
@@ -150,8 +134,7 @@ public class AgentLoopDaemon {
     }
 
     protected void delegateApiCalls(RepositoryConfig repo) {
-        if (gitHubClientService == null || !gitHubClientService.isConfigured()
-                || julesApiClient == null || !julesApiClient.isConfigured()) {
+        if (hasEmptyService()) {
             log.warn("Issue delegation skipped for '{}': GitHub or Jules is not configured.", repo.getName());
             return;
         }
@@ -159,14 +142,14 @@ public class AgentLoopDaemon {
         String owner = repo.getGithub().getOwner();
         String repository = repo.getGithub().getRepo();
         List<GitHubIssue> issues = gitHubClientService.getIssues(owner, repository, "open");
-        if (issues == null || issues.isEmpty()) {
+        if (isInvalidIssues(issues)) {
             log.info("No open issues available for delegation in {}/{}.", owner, repository);
             return;
         }
 
         Path localRepository = repositoryWorkspaceService == null ? null
                 : repositoryWorkspaceService.prepareRepository(repo,
-                repositoriesConfig.getGlobalSettings().getRepositoriesBasePath());
+                        repositoriesConfig.getGlobalSettings().getRepositoriesBasePath());
         for (GitHubIssue issue : issues) {
             if (!isAutomatedIssue(issue)) {
                 continue;
@@ -183,11 +166,21 @@ public class AgentLoopDaemon {
         }
     }
 
+    private boolean isInvalidIssues(List<GitHubIssue> issues) {
+        return issues == null || issues.isEmpty();
+    }
+
+    private boolean hasEmptyService() {
+        return gitHubClientService == null || !gitHubClientService.isConfigured() ||
+                julesApiClient == null || !julesApiClient.isConfigured() ||
+                stitchApiClient == null || !stitchApiClient.isConfigured();
+    }
+
     private void delegateDevelopmentIssue(String owner, String repository, GitHubIssue issue) {
         String branch = buildDelegationBranch("fix", issue);
         JulesTaskResponse response = julesApiClient.delegateIssue(
-                "https://github.com/" + owner + "/" + repository,
-                issue.getNumber(), branch, buildJulesPrompt(issue, null));
+                String.format(Costants.URL_GITHUB_PROJECT, owner, repository),
+            issue.getNumber(), "main", buildJulesPrompt(issue, null));
         log.info("Development issue #{} delegated to Jules with task '{}'.", issue.getNumber(),
                 response == null ? "unknown" : response.getTaskId());
         addDelegationComment(owner, repository, issue, "Jules", response);
@@ -213,8 +206,8 @@ public class AgentLoopDaemon {
         String owner = repo.getGithub().getOwner();
         String repository = repo.getGithub().getRepo();
         JulesTaskResponse response = julesApiClient.delegateIssue(
-                "https://github.com/" + owner + "/" + repository,
-                issue.getNumber(), buildDelegationBranch("design", issue),
+                String.format(Costants.URL_GITHUB_PROJECT, owner, repository),
+            issue.getNumber(), repo.getGithub().getDefaultBranch(),
                 buildJulesPrompt(issue, stitchResponse.getTransformedCode()));
         log.info("Design issue #{} transformed by Stitch and delegated to Jules with task '{}'.",
                 issue.getNumber(), response == null ? "unknown" : response.getTaskId());
@@ -227,18 +220,18 @@ public class AgentLoopDaemon {
         }
         return issue.getLabels().stream()
                 .map(GitHubIssue.Label::getName)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .map(label -> label.toLowerCase(Locale.ROOT))
-            .noneMatch("delegated-to-jules"::equals)
+                .noneMatch("delegated-to-jules"::equals)
                 && hasLabel(issue, "triage-resolvable-by-agent");
     }
 
     private boolean isDesignIssue(GitHubIssue issue) {
         String text = ((issue.getTitle() == null ? "" : issue.getTitle()) + " "
                 + (issue.getBody() == null ? "" : issue.getBody())).toLowerCase(Locale.ROOT);
-        Set<String> words = Set.of(text.split("[^a-z0-9]+"));
+        Set<String> words = new java.util.HashSet<>(List.of(text.split("[^a-z0-9]+")));
         return Set.of("design", "ui", "ux", "theme", "layout", "color", "visual", "stitch")
-            .stream().anyMatch(words::contains) || text.contains("material 3");
+                .stream().anyMatch(words::contains) || text.contains("material 3");
     }
 
     private String readWorkspaceFile(Path repository, String path) {
@@ -268,7 +261,7 @@ public class AgentLoopDaemon {
     }
 
     private void addDelegationComment(String owner, String repository, GitHubIssue issue,
-                                      String agent, JulesTaskResponse response) {
+            String agent, JulesTaskResponse response) {
         String taskId = response == null ? "unknown" : response.getTaskId();
         try {
             gitHubClientService.addIssueComment(owner, repository, issue.getNumber(),
@@ -281,7 +274,8 @@ public class AgentLoopDaemon {
 
     private int handleCrash(String owner, String repo, CrashEvent crash) {
         TriageResult result = triageService.triageCrashEvent(owner, repo, crash);
-        log.info("Crash '{}' triage decision: {} ({})", crash.getCrashId(), result.getDecision(), result.getReasoning());
+        log.info("Crash '{}' triage decision: {} ({})", crash.getCrashId(), result.getDecision(),
+                result.getReasoning());
         if (result.getDecision() == TriageDecision.IGNORE_DUPLICATE) {
             return 0;
         }
@@ -316,7 +310,8 @@ public class AgentLoopDaemon {
             String executionInfo = buildWorkflowExecutionInfo(run);
             TriageResult result = triageService.triageLogOutput(owner, repo, title,
                     executionInfo + "\n\n" + logs);
-            log.info("Workflow '{}' run {} triage decision: {} ({})", run.getName(), run.getId(), result.getDecision(), result.getReasoning());
+            log.info("Workflow '{}' run {} triage decision: {} ({})", run.getName(), run.getId(), result.getDecision(),
+                    result.getReasoning());
             if (result.getDecision() == TriageDecision.IGNORE_DUPLICATE) {
                 continue;
             }
@@ -416,7 +411,8 @@ public class AgentLoopDaemon {
                     findings += publishFinding(owner, repo, request, result, "config-" + path);
                 }
             } catch (Exception e) {
-                log.warn("Unable to inspect configured audit file '{}' in {}/{}: {}", path, owner, repo, e.getMessage());
+                log.warn("Unable to inspect configured audit file '{}' in {}/{}: {}", path, owner, repo,
+                        e.getMessage());
             }
         }
         return findings;
@@ -432,18 +428,20 @@ public class AgentLoopDaemon {
     private boolean hasLabel(GitHubIssue issue, String expectedLabel) {
         return issue != null && issue.getLabels() != null
                 && issue.getLabels().stream()
-                .map(GitHubIssue.Label::getName)
-                .filter(java.util.Objects::nonNull)
-                .anyMatch(label -> label.equalsIgnoreCase(expectedLabel));
+                        .map(GitHubIssue.Label::getName)
+                        .filter(java.util.Objects::nonNull)
+                        .anyMatch(label -> label.equalsIgnoreCase(expectedLabel));
     }
 
-    private int publishFinding(String owner, String repo, CreateIssueRequest request, TriageResult result, String findingId) {
+    private int publishFinding(String owner, String repo, CreateIssueRequest request, TriageResult result,
+            String findingId) {
         if (!gitHubClientService.isConfigured()) {
             log.warn("Finding '{}' was not published because GITHUB_TOKEN is missing.", findingId);
             return 1;
         }
         GitHubIssue issue = gitHubClientService.createIssue(owner, repo, request);
-        log.info("Created GitHub issue #{} for finding '{}'.", issue != null ? issue.getNumber() : "unknown", findingId);
+        log.info("Created GitHub issue #{} for finding '{}'.", issue != null ? issue.getNumber() : "unknown",
+                findingId);
 
         if (issue != null && issue.getNumber() != null) {
             addTriageComment(owner, repo, issue.getNumber(), result);
@@ -454,19 +452,21 @@ public class AgentLoopDaemon {
 
     private void addTriageComment(String owner, String repo, Long issueNumber, TriageResult result) {
         String comment = """
-            ## Automated triage recommendation
+                ## Automated triage recommendation
 
-            **Decision:** %s
+                **Decision:** %s
 
-            **Detailed analysis:**
-            %s
-            """.formatted(result.getDecision(),
-            result.getDetailedAnalysis() == null ? "No detailed analysis provided." : result.getDetailedAnalysis()).trim();
+                **Detailed analysis:**
+                %s
+                """.formatted(result.getDecision(),
+                result.getDetailedAnalysis() == null ? "No detailed analysis provided." : result.getDetailedAnalysis())
+                .trim();
         try {
             gitHubClientService.addIssueComment(owner, repo, issueNumber, comment);
             gitHubClientService.addIssueLabel(owner, repo, issueNumber, "triage-completed");
             String decisionLabel = result.getDecision() == TriageDecision.RESOLVABLE_BY_AGENT
-                    ? "triage-resolvable-by-agent" : "triage-human-intervention";
+                    ? "triage-resolvable-by-agent"
+                    : "triage-human-intervention";
             gitHubClientService.addIssueLabel(owner, repo, issueNumber, decisionLabel);
             log.info("Added automated triage comment to GitHub issue #{}.", issueNumber);
         } catch (Exception e) {

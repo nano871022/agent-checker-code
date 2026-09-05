@@ -1,12 +1,15 @@
 package com.codeauditor.agent.jules;
 
-import com.codeauditor.agent.jules.dto.JulesTaskRequest;
-import com.codeauditor.agent.jules.dto.JulesTaskResponse;
+import java.net.URI;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import com.codeauditor.agent.jules.dto.JulesTaskRequest;
+import com.codeauditor.agent.jules.dto.JulesTaskResponse;
 
 @Service
 public class JulesApiClient {
@@ -16,7 +19,7 @@ public class JulesApiClient {
 
     public JulesApiClient(
             RestClient.Builder restClientBuilder,
-            @Value("${jules.api.base-url:https://jules.googleapis.com/v1}") String baseUrl,
+            @Value("${jules.api.base-url:https://jules.googleapis.com/v1alpha}") String baseUrl,
             @Value("${jules.api.api-key:${JULES_API_KEY:${GOOGLE_JULES_API_KEY:}}}") String apiKey) {
 
         RestClient.Builder builder = restClientBuilder
@@ -43,7 +46,7 @@ public class JulesApiClient {
      */
     public JulesTaskResponse delegateTask(JulesTaskRequest request) {
         return restClient.post()
-                .uri("/tasks")
+                .uri("/sessions")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
@@ -63,11 +66,23 @@ public class JulesApiClient {
     }
 
     public JulesTaskResponse delegateIssue(String repositoryUrl, Long issueId, String targetBranch, String prompt) {
+        URI repository = URI.create(repositoryUrl);
+        String[] segments = repository.getPath().split("/");
+        if (segments.length < 3) {
+            throw new IllegalArgumentException("Repository URL must contain owner and repository: " + repositoryUrl);
+        }
+        String owner = segments[segments.length - 2];
+        String repo = segments[segments.length - 1];
         JulesTaskRequest request = JulesTaskRequest.builder()
-                .repositoryUrl(repositoryUrl)
-                .issueId(issueId)
-                .targetBranch(targetBranch)
-                .prompt(prompt)
+            .prompt((prompt == null ? "" : prompt) + "\n\nGitHub issue number: #" + issueId)
+            .title("Work on GitHub issue #" + issueId)
+            .automationMode("AUTO_CREATE_PR")
+            .sourceContext(JulesTaskRequest.SourceContext.builder()
+                .source("sources/github/" + owner + "/" + repo)
+                .githubRepoContext(JulesTaskRequest.GithubRepoContext.builder()
+                    .startingBranch(targetBranch == null || targetBranch.isBlank() ? "main" : targetBranch)
+                    .build())
+                .build())
                 .build();
         return delegateTask(request);
     }
@@ -80,7 +95,7 @@ public class JulesApiClient {
      */
     public JulesTaskResponse getTaskStatus(String taskId) {
         return restClient.get()
-                .uri("/tasks/{taskId}", taskId)
+                .uri("/sessions/{taskId}", taskId)
                 .retrieve()
                 .body(JulesTaskResponse.class);
     }
