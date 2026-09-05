@@ -1,0 +1,23 @@
+## 📌 Problem Overview
+
+- **Crash ID:** {{crashId}}
+- **App Version:** {{appVersion}}
+- **Exception Type:** {{exceptionType}}
+- **Message:** {{message}}
+- **Event Count:** {{eventCount}}
+{{fingerprintSection}}
+## 📜 Stack Trace
+
+{{stackTraceSection}}
+
+## 📍 Affected Location
+
+{{affectedLocationSection}}
+
+## 📋 Task Checklist for Jules
+
+- [ ] Investigate the root cause of {{exceptionTypeContext}}.
+- [ ] Locate affected code file and method.
+- [ ] Implement crash prevention / fix logic.
+- [ ] Add test cases to prevent regression.
+- [ ] Run build `./mvnw clean test` to ensure all tests pass.
